@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Rye.Jwt
 {
@@ -34,7 +34,8 @@ namespace Rye.Jwt
         {
             var now = DateTimeOffset.UtcNow;
             long nowTick = now.Ticks; //now.ToJsGetTime().ParseByLong();
-            return AccessExpires > nowTick;
+            // 到期时间 <= 当前 UTC ticks 才算过期（原实现方向相反，见 ADR-0002）
+            return AccessExpires <= nowTick;
         }
 
         /// <summary>
@@ -44,7 +45,8 @@ namespace Rye.Jwt
         {
             var now = DateTimeOffset.UtcNow;
             long nowTick = now.Ticks; //now.ToJsGetTime().ParseByLong();
-            return RefreshExpires > nowTick;
+            // 到期时间 <= 当前 UTC ticks 才算过期（原实现方向相反，见 ADR-0002）
+            return RefreshExpires <= nowTick;
         }
     }
 }

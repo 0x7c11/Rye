@@ -13,7 +13,10 @@ namespace Rye
             // 加载配置
             App.AddConfigureFiles(builder.Configuration, builder.Environment);
 
+            builder.Services.AddRye();
+
             return builder;
         }
     }
 }
+

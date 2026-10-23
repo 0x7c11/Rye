@@ -1,4 +1,4 @@
-﻿using SqlSugar;
+using SqlSugar;
 
 namespace Rye.SqlSugarCore
 {
@@ -104,7 +104,9 @@ namespace Rye.SqlSugarCore
                     IsNoReadXmlDescription = true,
                     IsWithNoLockQuery = true,
                     IsWithNoLockSubquery = true,
-                    DisableNvarchar = true,
+                    //DisableNvarchar：true 时字符串列建 varchar、参数按 ANSI 写入；在 Latin1 之类排序规则的库上中文会变成 '?'
+                    //（旧实现硬编码为 true）。默认 false = nvarchar，中文/多语言安全；如需 ANSI 存储可用 AppSettings:DisableNvarchar=true 打开。
+                    DisableNvarchar = App.GetConfig<bool?>("AppSettings:DisableNvarchar") ?? false,
                 },
                 ConfigureExternalServices = new ConfigureExternalServices()
                 {
@@ -115,6 +117,15 @@ namespace Rye.SqlSugarCore
                     //表当中的每个字段配置信息
                     EntityService = (c, p) =>
                     {
+                        //中文/多语言安全：字符串列默认使用 nvarchar。
+                        //实测 SqlSugar 5.1.4.211 在 SqlServer 下并不采纳 MoreSettings.DisableNvarchar（置为 false 仍会建出 varchar），
+                        //而且该回调必须在构造 SqlSugarClient 时注册才生效（构造后再包装 ConfigureExternalServices 无效），
+                        //因此在配置构建阶段统一把"未显式指定 ColumnDataType 的字符串列"置为 nvarchar。需要 varchar 的列在实体上显式写 ColumnDataType 即可。
+                        if (p.UnderType == typeof(string) && string.IsNullOrWhiteSpace(p.DataType))
+                        {
+                            p.DataType = "nvarchar";
+                        }
+
                         //oracle 数据库相关配置
                         if (myDbType == SqlSugar.DbType.Oracle)
                         {

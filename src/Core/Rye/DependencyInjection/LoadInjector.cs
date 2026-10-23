@@ -68,6 +68,19 @@ namespace Rye.DependencyInjection
         private static void AddService(IServiceCollection serviceCollection, Type serviceType, Type implementationType, ServiceLifetime lifetime, InjectionPolicy policy)
         {
             var descriptor = new ServiceDescriptor(serviceType, implementationType, lifetime);
+
+            // 自注册（服务类型 == 实现类型）在 Append 策略下不能用 TryAddEnumerable：
+            // 它会对这个 descriptor 抛 ArgumentException（Implementation type cannot be 'X'
+            // because it is indistinguishable from other services registered for 'X'），
+            // 使服务类上的 [Injection] 直接让宿主启动失败。
+            // 自注册只可能有一个实现，退化为 TryAdd —— 与 Append「已存在则不重复登记」的语义一致；
+            // Skip / Replace 对自注册本来就是安全的（TryAdd / Replace 不做该检查），保持原样。
+            if (serviceType == implementationType && policy == InjectionPolicy.Append)
+            {
+                serviceCollection.TryAdd(descriptor);
+                return;
+            }
+
             switch (policy)
             {
                 case InjectionPolicy.Append:
@@ -83,3 +96,4 @@ namespace Rye.DependencyInjection
         }
     }
 }
+

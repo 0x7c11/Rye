@@ -79,6 +79,7 @@ namespace Rye
         /// </summary>
         public bool IsSliding { get; set; } = false;
 
+        private string _key = string.Empty;
         public void Calling(CallingInterceptContext callingInterceptorContext)
         {
             if (string.IsNullOrEmpty(CacheKey))
@@ -88,8 +89,8 @@ namespace Rye
                     method = method[0..^5];
                 CacheKey = callingInterceptorContext.Owner.GetType().FullName + "." + method;
             }
-            var key = GetKey(CacheKey, callingInterceptorContext.Parameters);
-            var result = Cache.Get<string>(Scheme, key);
+            _key = GetKey(CacheKey, callingInterceptorContext.Parameters);
+            var result = Cache.Get<string>(Scheme, _key);
             if (result != null)
             {
                 callingInterceptorContext.HasResult = true;
@@ -103,14 +104,13 @@ namespace Rye
 
         public void Called(CalledInterceptContext calledInterceptorContext)
         {
-            var key = GetKey(CacheKey, calledInterceptorContext.Parameters);
-            if (!Cache.Exists(Scheme, key))
+            if (!Cache.Exists(Scheme, _key))
             {
                 var result = calledInterceptorContext.Result ?? calledInterceptorContext.ReturnValue;
                 if (result != null)
                 {
                     CacheOptionEntry entry = new CacheOptionEntry();
-                    entry.Key = key;
+                    entry.Key = _key;
                     if (IsSliding)
                     {
                         entry.SetSlidingExpiration(TimeSpan.FromSeconds(CacheSeconds));
