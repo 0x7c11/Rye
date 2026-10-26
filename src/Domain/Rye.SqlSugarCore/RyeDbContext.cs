@@ -160,6 +160,20 @@ namespace Rye.SqlSugarCore
                                 p.IsIgnore = true;
                             }
                         }
+                        else if (myDbType == SqlSugar.DbType.Sqlite)
+                        {
+                            // SQLite 特殊处理：
+                            // 1. 自增主键必须是 INTEGER PRIMARY KEY（long/bigint 不行，SQLite 只有 INTEGER 支持 AUTOINCREMENT）
+                            if (p.IsPrimarykey && p.IsIdentity && (p.UnderType == typeof(long) || p.UnderType == typeof(int)))
+                            {
+                                p.DataType = "INTEGER";
+                            }
+                            // 2. 字符串列统一用 TEXT（SQLite 无 varchar/nvarchar 区别，TEXT 原生支持 Unicode）
+                            if (p.UnderType == typeof(string))
+                            {
+                                p.DataType = "TEXT";
+                            }
+                        }
                     }
                 },
                 //从库
@@ -196,12 +210,25 @@ namespace Rye.SqlSugarCore
         protected virtual SqlSugar.DbType GetDbType(string connstr)
         {
             var dbType = SqlSugar.DbType.SqlServer;
-            if (connstr.StartsWith("DataSource=", StringComparison.Ordinal) && connstr.Contains("sqlite", StringComparison.InvariantCultureIgnoreCase))
+            // 去掉末尾分号后再判断扩展名
+            var connstrTrimmed = connstr.TrimEnd(';', ' ');
+            if (connstr.Contains("sqlite", StringComparison.InvariantCultureIgnoreCase)
+                || connstrTrimmed.EndsWith(".db", StringComparison.OrdinalIgnoreCase)
+                || connstrTrimmed.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase)
+                || connstrTrimmed.EndsWith(".db3", StringComparison.OrdinalIgnoreCase)
+                || connstrTrimmed.EndsWith(".sqlite3", StringComparison.OrdinalIgnoreCase))
             {
+                // SQLite：连接串包含 sqlite 字样，或以 .db/.sqlite/.db3/.sqlite3 结尾（Data Source=xxx.db 形式）
                 dbType = SqlSugar.DbType.Sqlite;
+            }
+            else if (connstr.StartsWith("DataSource=", StringComparison.Ordinal))
+            {
+                // DataSource= 开头且不含 sqlite 字样，按 Oracle 处理（Oracle 托管驱动格式）
+                dbType = SqlSugar.DbType.Oracle;
             }
             else if (connstr.StartsWith("Data Source=", StringComparison.InvariantCultureIgnoreCase))
             {
+                // Data Source= 开头且不是 SQLite，按 Oracle 处理
                 dbType = SqlSugar.DbType.Oracle;
             }
             else if (connstr.Contains("Database=", StringComparison.InvariantCultureIgnoreCase) && connstr.Contains("Uid=", StringComparison.Ordinal) && connstr.Contains("Pwd=", StringComparison.Ordinal))
